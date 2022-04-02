@@ -62,11 +62,11 @@ void DS18b20::DS_GetTemp(int DS_num,float *temp_str_data)
 		fclose(fp);
 		return;
 	 }
-	 int temp = atof(temp_raw);
-	 if (temp >= 2048000)
-		 temp -= 4096000;
+	 float temp = atof(temp_raw)/1000.0;
+	 if (temp >= 2048.0)
+		 temp -= 4096.0;
 	 
-	 *temp_str_data = (float)temp/1000.0;
+	 *temp_str_data = temp;
 	 
 	 //*temp_str_data = atof(temp_raw) / 1000; /* original */
 	 
