@@ -5,8 +5,6 @@
 		<script src="https://unpkg.com/jquery@3.3.1/dist/jquery.js"></script>
 		<link rel="stylesheet" type="text/css" href="https://unpkg.com/fomantic-ui@2.8.8/dist/semantic.min.css">
 		<script src="https://unpkg.com/fomantic-ui@2.8.8/dist/semantic.min.js"></script>
-		<!--<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
-		<script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>-->
 		<script src="https://cdn.jsdelivr.net/npm/chart.js/dist/chart.min.js"></script>
 		<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>		
 		<link rel="icon" type="image/x-icon" href="plant.png">
@@ -19,10 +17,24 @@
 		if (!$conn) {
 			die("Connection failed: " . mysqli_connect_error());
 		}
+		
+		$action = $_GET['action'];
+		
+		$view = "day";
+		
+		switch ($action) {
+			case "viewday": $view = "day"; break;
+			case "viewweek": $view = "week"; break;
+			case "viewmonth": $view = "month"; break;
+			case "viewavgweek": $view = "avgweek"; break;
+			case "viewavgmonth": $view = "avgmonth"; break;
+		}
 	?>
 
 	<body style="padding: 15px">
-		<div class="ui container">
+		<div class="ui grid">
+			<div class="two wide column"></div>
+			<div class="twelve wide column">
 			<div class="ui segment">
 				<div class="ui grid">
 					<div class="six wide column">
@@ -121,13 +133,47 @@
 					</div>
 				</div>
 			</div>
+			
+			<div class="ui segment">
+				<a href="index.php?action=viewday" class="ui button"><i class="calendar day icon"></i> Day</a>
+				&nbsp;
+				<a href="index.php?action=viewweek" class="ui button"><i class="calendar week icon"></i> Week</a>
+				&nbsp;
+				<a href="index.php?action=viewmonth" class="ui button"><i class="calendar icon"></i> Month</a>
+				&nbsp; &nbsp;
+				<a href="index.php?action=viewavgweek" class="ui button"><i class="calendar week icon"></i> Weekly average</a>
+				&nbsp;
+				<a href="index.php?action=viewavgmonth" class="ui button"><i class="calendar icon"></i> Monthly average</a>
+			</div>
+			
 			<div class="ui segment">
 			
 			<canvas id="myChart" style="height:500px"></canvas>
 
 			<?php
 
-				$sql = "select sensor_id, temp_c, temp_time from temps where temp_time > date_add(now(), interval -1 day) order by temp_time asc";
+				if (($view == "day") || ($view == "")) {
+					$sql = "select sensor_id, temp_c, temp_time from temps where temp_time > date_add(now(), interval -1 day) order by temp_time asc";
+					$title = "Temperatures last 24 hours";
+					$unit = "hour";
+				} elseif ($view == "week") {
+					$sql = "select * from (SELECT temps.*, ROW_NUMBER() OVER ( ORDER BY temp_time ) as row_num FROM temps WHERE temp_time > Now()- INTERVAL 1 week) as t where row_num % 7 = 0";
+					$title = "Temperatures last week";
+					$unit = "day";
+				} elseif ($view == "avgweek") {
+					$sql = "select sensor_id, avg(temp_c) 'temp_c', concat(date(now()), ' ',time(temp_time)) 'temp_time' from (select *, (minute(temp_time)+(hour(temp_time)*60)) 'mins' from temps WHERE temp_time > Now()- INTERVAL 1 week and temp_c > -100) as t group by sensor_id, mins";
+					$title = "Average hourly temperatures for previous week";
+					$unit = "hour";
+				} elseif ($view == "month") {
+					$sql = "select * from (SELECT temps.*, ROW_NUMBER() OVER ( ORDER BY temp_time ) as row_num FROM temps WHERE temp_time > Now()- INTERVAL 1 month) as t where row_num % 30 = 0";
+					$title = "Temperatures last month";
+					$unit = "day";
+				} elseif ($view == "avgmonth") {
+					$sql = "select sensor_id, avg(temp_c) 'temp_c', concat(date(now()), ' ',time(temp_time)) 'temp_time' from (select *, (minute(temp_time)+(hour(temp_time)*60)) 'mins' from temps WHERE temp_time > Now()- INTERVAL 1 month and temp_c > -100) as t group by sensor_id, mins";
+					$title = "Average hourly temperatures for previous month";
+					$unit = "hour";
+				}
+				
 				$result = mysqli_query($conn, $sql);
 
 				if (mysqli_num_rows($result) > 0) {
@@ -183,18 +229,20 @@
 						datasets: [
 							{
 								label: 'Ceiling',
-								borderColor: 'rgb(51, 102, 204)',
-								backgroundColor: 'rgb(51, 102, 204)',
+								borderColor: 'rgb(0, 100, 0)',
+								backgroundColor: 'rgb(0, 100, 0)',
 								borderWidth: 2,
+								borderJoinStyle: 'round',
 								fill: false,
 								data: [<?=$chartdata1?>],
 								yAxisID: 'y'
 							},
 							{
 								label: 'Bench',
-								borderColor: 'rgb(0, 153, 51)',
-								backgroundColor: 'rgb(0, 153, 51)',
+								borderColor: 'rgb(0, 140, 0)',
+								backgroundColor: 'rgb(0, 140, 0)',
 								borderWidth: 2,
+								borderJoinStyle: 'round',
 								fill: false,
 								data: [<?=$chartdata2?>],
 								yAxisID: 'y'
@@ -204,6 +252,7 @@
 								borderColor: 'rgb(0,180,0)',
 								backgroundColor: 'rgb(0,180,0)',
 								borderWidth: 2,
+								borderJoinStyle: 'round',
 								fill: false,
 								data: [<?=$chartdata5?>],
 								yAxisID: 'y'
@@ -213,25 +262,28 @@
 								borderColor: 'rgb(0, 102, 255)',
 								backgroundColor: 'rgb(0, 102, 255)',
 								borderWidth: 2,
+								borderJoinStyle: 'round',
 								fill: false,
 								data: [<?=$chartdata3?>],
 								yAxisID: 'y'
 							},
 							{
 								label: 'Outside',
-								borderColor: 'rgb(192, 192, 192)',
+								borderColor: 'rgb(164, 164, 164)',
 								backgroundColor: 'rgb(192, 192, 192)',
 								borderWidth: 2,
+								borderJoinStyle: 'round',
 								fill: false,
 								data: [<?=$chartdata4?>],
 								yAxisID: 'y'
 							},
 							{
 								label: 'Light',
-								borderColor: 'rgb(235, 235, 0)',
-								backgroundColor: 'rgb(235, 235, 0)',
-								borderWidth: 2,
-								fill: false,
+								borderColor: 'rgba(255, 239, 68, 0.5)',
+								backgroundColor: 'rgba(255, 255, 128, 0.5)',
+								borderWidth: 1,
+								borderJoinStyle: 'round',
+								fill: true,
 								data: [<?=$chartdata6?>],
 								yAxisID: 'y1'
 							}
@@ -241,23 +293,34 @@
 						type: 'line',
 						data: data,
 						options: {
+							animation: false,
+						    interaction: {
+								intersect: true,
+								mode: 'index',
+							},
 							elements: {
 								point:{
 									radius: 0
 								}
 							},
 							plugins: {
-								decimation: {enabled: true, algorithm: 'lttb'},
+								decimation: {
+									enabled: true,
+									algorithm: 'lttb'
+								},
 								title: {
 									display: true,
-									text: 'Daily Temperatures',
+									text: '<?php echo $title; ?>',
+									font: {
+										size: 16
+									}
 								}
 							},
 							scales: {
 								x: {
 									type: 'time',
 									time: {
-										unit: 'hour'
+										unit: '<?php echo $unit; ?>'
 									}
 								},
 								y: {
@@ -279,8 +342,9 @@
 							}
 						}
 					});
-				</script>				
+				</script>
 			</div>
+			<div class="two wide column"></div>
 		</div>
 	</body>
 	

@@ -123,7 +123,6 @@ while True:
     y+= 30
     
     mydb.commit()
-    #cur.execute("SELECT temp_c, temp_time, sensor_name FROM `temps` a left join sensors b on a.sensor_id = b.sensor_id where temp_time > date_add(now(), interval -1 day) order by temp_time desc limit 5")
     cur.execute("select sensor_name, recent_temp from sensors")
     for (sensor_name, recent_temp) in cur:
         temp_f = (recent_temp * (9/5)) + 32
